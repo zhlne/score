@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>查詢成績</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-light">
+<div class="container mt-5">
+    <div class="card shadow p-4">
+        <h2 class="mb-4">🔍 查詢學生成績</h2>
+
+        <form method="POST">
+            <div class="mb-3">
+                <label for="student_id" class="form-label">請輸入學號：</label>
+                <input type="text" class="form-control" id="student_id" name="student_id" required>
+            </div>
+            <button type="submit" class="btn btn-success">查詢</button>
+
+            <div class="mt-3">
+                <a href="{{ url_for('upload') }}" class="btn btn-outline-secondary">🔁 回上傳頁面</a>
+            </div>
+        </form>
+
+        {% if uploaded %}
+            <div class="alert alert-success mt-3">✅ 成功上傳並處理新成績檔案！</div>
+        {% endif %}
+
+        {% if error %}
+            <div class="alert alert-warning mt-3">{{ error }}</div>
+        {% endif %}
+
+        {% if result is not none %}
+            <hr>
+            {% if result.empty %}
+                <div class="alert alert-danger mt-3">❌ 查無此學號</div>
+            {% else %}
+                <h4 class="mt-3">查詢結果：</h4>
+                <ul class="list-group">
+                    <li class="list-group-item">學號：{{ result.iloc[0].id }}</li>
+                    <li class="list-group-item">原始成績：{{ result.iloc[0].final_score }}</li>
+                    <li class="list-group-item">調整後成績：{{ result.iloc[0].adjusted_score }}</li>
+                    <li class="list-group-item">
+                        調整狀態：
+                        {% if result.iloc[0].final_score != result.iloc[0].adjusted_score %}
+                            <span class="text-danger fw-bold">已調整（線性放大）</span>
+                        {% else %}
+                            <span class="text-success">未調整</span>
+                        {% endif %}
+                    </li>
+                    <li class="list-group-item">等級：<strong>{{ result.iloc[0].grade }}</strong></li>
+                </ul>
+            {% endif %}
+        {% endif %}
+
+        <hr>
+        <h4 class="mt-4">📊 成績分佈統計</h4>
+
+        <div class="mb-3">
+            <label for="chartType" class="form-label">選擇圖表類型：</label>
+            <select id="chartType" class="form-select w-auto">
+                <option value="bar">長條圖</option>
+                <option value="pie">圓餅圖</option>
+            </select>
+        </div>
+        
+        <div class="d-flex justify-content-center mb-4">
+            <canvas id="scoreChart" style="width: 100%; max-width: 400px; height: 280px;"></canvas>
+        </div>
+        
+        <script>
+            let chartInstance = null;
+        
+            function renderChart(type, labels, data) {
+                const ctx = document.getElementById('scoreChart').getContext('2d');
+        
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+        
+                chartInstance = new Chart(ctx, {
+                    type: type,
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '人數',
+                            data: data,
+                            backgroundColor: type === 'pie'
+                                ? ['#4CAF50', '#2196F3', '#FFC107', '#FF5722', '#9C27B0']
+                                : 'rgba(54, 162, 235, 0.6)'
+                        }]
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: type === 'pie' }
+                        },
+                        scales: type === 'bar' ? { y: { beginAtZero: true } } : {},
+                        layout: { padding: 10 },
+                        radius: type === 'pie' ? '90%' : undefined  // ✅ 調整圓餅圖大小
+                    }
+                });
+            }
+        
+            fetch('/chart-data')
+                .then(response => response.json())
+                .then(chart => {
+                    const labels = chart.labels;
+                    const data = chart.data;
+
+                    renderChart('bar', labels, data);
+
+                    document.getElementById('chartType').addEventListener('change', function () {
+                        renderChart(this.value, labels, data);
+                    });
+                });
+        </script>
+
+        <div class="alert alert-secondary mt-4">
+            <strong>成績分級標準：</strong><br>
+            ▸ A：85–100<br>
+            ▸ B：75–84<br>
+            ▸ C：65–74<br>
+            ▸ D：55–64<br>
+            ▸ F：54 以下
+        </div>
+    </div>
+</div>
+</body>
+</html>
